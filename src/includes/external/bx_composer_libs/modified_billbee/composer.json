@@ -1,0 +1,17 @@
+{
+    "repositories": [
+        {
+            "type": "path",
+            "url": "local-packages/billbee/custom-shop-api",
+            "options": {
+                "symlink": false,
+                "versions": {
+                    "billbee/custom-shop-api": "3.0.1"
+                }
+            }
+        }
+    ],
+    "require": {
+        "billbee/custom-shop-api": "^3.0"
+    }
+}

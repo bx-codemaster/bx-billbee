@@ -1,0 +1,58 @@
+{
+  "name": "billbee/custom-shop-api",
+  "description": "Implementation of the Billbee custom shop API in PHP",
+  "type": "library",
+  "require": {
+    "php": "^8.2",
+    "psr/http-message": "^2.0",
+    "jms/serializer": "^1.14.0 || ^3.14.0",
+    "ralouphie/getallheaders": "~3.0",
+    "mintware-de/streams": "^3.0.0",
+    "ext-json": "*",
+    "doctrine/annotations": "^2.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10.0 || ^11.0",
+    "friendsofphp/php-cs-fixer": "^v3.8.0",
+    "phpstan/phpstan": "^2.0"
+  },
+  "suggest": {
+    "ext-xdebug": "*"
+  },
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Julian Finkler",
+      "email": "julian@billbee.io"
+    }
+  ],
+  "minimum-stability": "stable",
+  "autoload": {
+    "psr-4": {
+      "Billbee\\CustomShopApi\\": "src/",
+      "Billbee\\Tests\\CustomShopApi\\": "tests/"
+    }
+  },
+  "scripts": {
+    "fix-cs": [
+      "./vendor/bin/php-cs-fixer fix ./src/ --using-cache=no --rules=@PSR2",
+      "./vendor/bin/php-cs-fixer fix ./tests/ --using-cache=no --rules=@PSR2"
+    ],
+    "fix-cs:dry-run": [
+      "./vendor/bin/php-cs-fixer fix ./src/ --using-cache=no --rules=@PSR2 --dry-run",
+      "./vendor/bin/php-cs-fixer fix ./tests/ --using-cache=no --rules=@PSR2 --dry-run"
+    ],
+    "phpstan": [
+      "./vendor/bin/phpstan"
+    ],
+    "test": [
+      "./vendor/bin/phpunit"
+    ]
+  },
+  "archive": {
+    "exclude": [
+      "/docs",
+      "/tests"
+    ]
+  }
+}
