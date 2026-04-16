@@ -93,4 +93,3 @@ $response = $handler->handle($request);
 
 // Zuletzt wird die Response an den client gesendet
 $response->send();
-?>

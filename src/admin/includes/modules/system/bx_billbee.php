@@ -90,6 +90,107 @@ class bx_billbee {
 	public function display() {
     return array('text' => '<div style="text-align: center;">'.xtc_button(BUTTON_SAVE).xtc_button_link(BUTTON_CANCEL, xtc_href_link(FILENAME_MODULE_EXPORT, 'set='.$_GET['set'].'&module='.$this->code))."</div>");
   }
+
+	/**
+	 * Prueft, ob eine Datenbanktabelle existiert.
+	 *
+	 * @param string $tableName Tabellenname
+	 *
+	 * @return bool
+	 */
+	private function hasTable(string $tableName): bool {
+		$tableCheck = xtc_db_query("SHOW TABLES LIKE '" . xtc_db_input($tableName) . "'");
+
+		return xtc_db_num_rows($tableCheck) > 0;
+	}
+
+	/**
+	 * Entfernt die Trigger fuer die Spiegelung von Variantenbestaenden.
+	 *
+	 * @return void
+	 */
+	private function dropVariantMirrorTriggers(): void {
+		xtc_db_query("DROP TRIGGER IF EXISTS bx_billbee_stock_sync_ai");
+		xtc_db_query("DROP TRIGGER IF EXISTS bx_billbee_stock_sync_au");
+		xtc_db_query("DROP TRIGGER IF EXISTS bx_billbee_stock_sync_ad");
+	}
+
+	/**
+	 * Legt Trigger an, die relevante Variantendaten nach bx_billbee_stock spiegeln.
+	 *
+	 * @return void
+	 */
+	private function installVariantMirrorTriggers(): void {
+		if (!$this->hasTable('bx_product_variants') || !$this->hasTable('bx_billbee_stock')) {
+			return;
+		}
+
+		$this->dropVariantMirrorTriggers();
+
+		xtc_db_query("CREATE TRIGGER bx_billbee_stock_sync_ai
+AFTER INSERT ON bx_product_variants
+FOR EACH ROW
+INSERT INTO bx_billbee_stock (
+	products_id,
+	products_sku,
+	products_ean,
+	billbee_attributes,
+	billbee_attributes_quantity,
+	bx_exported
+) VALUES (
+	NEW.products_id,
+	COALESCE(NEW.products_sku, ''),
+	COALESCE(NEW.products_ean, ''),
+	COALESCE(NEW.products_stock_attributes, ''),
+	COALESCE(NEW.products_stock_quantity, 0),
+	'n'
+)
+ON DUPLICATE KEY UPDATE
+	products_sku = VALUES(products_sku),
+	products_ean = VALUES(products_ean),
+	billbee_attributes_quantity = VALUES(billbee_attributes_quantity),
+	bx_exported = 'n'");
+
+		xtc_db_query("CREATE TRIGGER bx_billbee_stock_sync_au
+AFTER UPDATE ON bx_product_variants
+FOR EACH ROW
+BEGIN
+	IF OLD.products_id <> NEW.products_id
+		 OR COALESCE(OLD.products_stock_attributes, '') <> COALESCE(NEW.products_stock_attributes, '') THEN
+		DELETE FROM bx_billbee_stock
+		 WHERE products_id = OLD.products_id
+			 AND billbee_attributes = COALESCE(OLD.products_stock_attributes, '');
+	END IF;
+
+	INSERT INTO bx_billbee_stock (
+		products_id,
+		products_sku,
+		products_ean,
+		billbee_attributes,
+		billbee_attributes_quantity,
+		bx_exported
+	) VALUES (
+		NEW.products_id,
+		COALESCE(NEW.products_sku, ''),
+		COALESCE(NEW.products_ean, ''),
+		COALESCE(NEW.products_stock_attributes, ''),
+		COALESCE(NEW.products_stock_quantity, 0),
+		'n'
+	)
+	ON DUPLICATE KEY UPDATE
+		products_sku = VALUES(products_sku),
+		products_ean = VALUES(products_ean),
+		billbee_attributes_quantity = VALUES(billbee_attributes_quantity),
+		bx_exported = 'n';
+END");
+
+		xtc_db_query("CREATE TRIGGER bx_billbee_stock_sync_ad
+AFTER DELETE ON bx_product_variants
+FOR EACH ROW
+DELETE FROM bx_billbee_stock
+ WHERE products_id = OLD.products_id
+	 AND billbee_attributes = COALESCE(OLD.products_stock_attributes, '')");
+	}
     
   public function install(): void {
 		xtc_db_query("ALTER TABLE ".TABLE_ADMIN_ACCESS." ADD bx_billbee INTEGER(1)");
@@ -106,6 +207,7 @@ class bx_billbee {
 																									
 		xtc_db_query("ALTER TABLE ".TABLE_BB_STOCK." ADD PRIMARY KEY (billbee_stock_id), ADD UNIQUE KEY idx_billbee_attributes (products_id,billbee_attributes);");
 		xtc_db_query("ALTER TABLE ".TABLE_BB_STOCK." MODIFY billbee_stock_id int(11) UNSIGNED NOT NULL AUTO_INCREMENT;");
+		$this->installVariantMirrorTriggers();
 
 		xtc_db_query("ALTER TABLE ".TABLE_ORDERS." ADD bx_exported VARCHAR(1) NOT NULL DEFAULT 'n'");
 		xtc_db_query("ALTER TABLE ".TABLE_PRODUCTS." ADD bx_exported VARCHAR(1) NOT NULL DEFAULT 'n'");
@@ -539,6 +641,7 @@ class bx_billbee {
    * @return void
    */
   public function remove(): void {
+		$this->dropVariantMirrorTriggers();
     xtc_db_query("DELETE FROM ".TABLE_CONFIGURATION." WHERE configuration_key in ('".implode("', '", $this->keys())."')");
 		xtc_db_query("DELETE FROM ".TABLE_CONFIGURATION." WHERE configuration_key in ('".implode("', '", $this->keys2())."')");
 		xtc_db_query("DELETE FROM ".TABLE_CONFIGURATION_GROUP." WHERE configuration_group_title = 'Billbee Konfiguration'");
