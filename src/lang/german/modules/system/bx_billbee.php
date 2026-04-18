@@ -17,9 +17,8 @@
    ---------------------------------------------------------------------------------------*/
 
 define('MODULE_BILLBEE_TEXT_TITLE', 'BX Billbee');
-define('MODULE_BILLBEE_TEXT_DESCRIPTION', '<table><tr><td>'.xtc_image(DIR_WS_ICONS.'heading/billbee_logo.png', 'Billbee').'</td><td><strong>Die einfache Multichannel-Software in der Cloud</strong></td></tr></table>
-<h4>Eigenschaften</h4>
-<p>Vollst&auml;ndig anpassbar</p>'
+define('MODULE_BILLBEE_TEXT_DESCRIPTION', '<table><tr><td>'.xtc_image(DIR_WS_ICONS.'heading/bx_billbee.png', 'Billbee', '', '', 'style="max-height: 32px;"').'</td><td><strong>Die einfache Multichannel-Software in der Cloud</strong></td></tr></table>
+<h4>Eigenschaftenändig anpassbar</p>'
 .((defined('MODULE_BILLBEE_STATUS') && 'true' == MODULE_BILLBEE_STATUS ) ? '<a href="'.xtc_href_link(FILENAME_BILLBEE, '', 'SSL').'">
 <h3 style="text-align: center;">&rAarr; Konfiguration &lAarr;</h3></a>' : '').' ');
 define('MODULE_BILLBEE_STATUS_TITLE' , 'Status');

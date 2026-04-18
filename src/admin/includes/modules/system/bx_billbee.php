@@ -37,6 +37,9 @@ class bx_billbee {
   /** @var int|false Cache für check()-Ergebnis */
   private $_check;
 
+	/** @var string Entwicklungsstatus des Moduls ('p' = production ready, 'd' = in development) */
+  public string $development_status;
+
   /**
    * Konstruktor - Initialisiert die Modul-Eigenschaften
    */
@@ -47,6 +50,7 @@ class bx_billbee {
     $this->description = MODULE_BILLBEE_TEXT_DESCRIPTION.'<p><strong>Version: '.$this->version.'</strong></p>';
     $this->sort_order  = defined('MODULE_BILLBEE_SORT_ORDER') ? MODULE_BILLBEE_SORT_ORDER : 0;
     $this->enabled     = defined('MODULE_BILLBEE_STATUS') ? ((MODULE_BILLBEE_STATUS == 'true') ? true : false) : 0;
+		$this->development_status = 'p';
    }
 
   /**
@@ -92,7 +96,7 @@ class bx_billbee {
   }
 
 	/**
-	 * Prueft, ob eine Datenbanktabelle existiert.
+	 * Prüft, ob eine Datenbanktabelle existiert.
 	 *
 	 * @param string $tableName Tabellenname
 	 *
@@ -105,109 +109,61 @@ class bx_billbee {
 	}
 
 	/**
-	 * Entfernt die Trigger fuer die Spiegelung von Variantenbestaenden.
+	 * Prüft, ob eine Spalte in einer Datenbanktabelle existiert.
 	 *
-	 * @return void
+	 * @param string $tableName Tabellenname
+	 * @param string $columnName Spaltenname
+	 *
+	 * @return bool
 	 */
-	private function dropVariantMirrorTriggers(): void {
-		xtc_db_query("DROP TRIGGER IF EXISTS bx_billbee_stock_sync_ai");
-		xtc_db_query("DROP TRIGGER IF EXISTS bx_billbee_stock_sync_au");
-		xtc_db_query("DROP TRIGGER IF EXISTS bx_billbee_stock_sync_ad");
+	private function hasColumn(string $tableName, string $columnName): bool {
+		$columnCheck = xtc_db_query("SHOW COLUMNS FROM " . $tableName . " LIKE '" . xtc_db_input($columnName) . "'");
+
+		return xtc_db_num_rows($columnCheck) > 0;
 	}
 
 	/**
-	 * Legt Trigger an, die relevante Variantendaten nach bx_billbee_stock spiegeln.
+	 * Legt die gemeinsame Variantentabelle an oder ergänzt Billbee-spezifische Felder.
 	 *
 	 * @return void
 	 */
-	private function installVariantMirrorTriggers(): void {
-		if (!$this->hasTable('bx_product_variants') || !$this->hasTable('bx_billbee_stock')) {
+	private function ensureSharedVariantTable(): void {
+		if (!$this->hasTable('bx_product_variants')) {
+			xtc_db_query("CREATE TABLE IF NOT EXISTS bx_product_variants (
+				identifier_id int(11) UNSIGNED NOT NULL COMMENT 'Auto Increment Id',
+				products_id int(11) UNSIGNED NOT NULL COMMENT 'Eindeutige Produkt Id',
+				attributes_hash varchar(32) NOT NULL COMMENT 'MD5 der Attribut-Kombination',
+				products_sku varchar(100) DEFAULT NULL COMMENT 'Artikelnummer/SKU',
+				products_ean varchar(50) DEFAULT NULL COMMENT 'EAN-13, GTIN',
+				products_upc varchar(50) DEFAULT NULL COMMENT 'UPC (US-Format)',
+				products_isbn varchar(50) DEFAULT NULL COMMENT 'ISBN (Bücher)',
+				wws_artikel_nr varchar(100) DEFAULT NULL COMMENT 'Externe Warenwirtschafts-Nummer',
+				wws_system varchar(50) DEFAULT NULL COMMENT 'WWS-System (JTL, SAP, Lexware, etc.)',
+				warehouse_location varchar(100) DEFAULT NULL COMMENT 'Lagerplatz (z.B. A-12-03)',
+				products_stock_attributes text DEFAULT NULL COMMENT 'Serialisierte Attribut-Daten',
+				products_stock_quantity decimal(15,4) NOT NULL DEFAULT 0.0000 COMMENT 'Lagerbestand',
+				bx_exported varchar(1) NOT NULL DEFAULT 'n' COMMENT 'Billbee Exportstatus',
+				created_at datetime NOT NULL DEFAULT current_timestamp(),
+				updated_at datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Gemeinsame Varianten-Tabelle für BX MPI, BX Stockmanager und Billbee'");
+
+			xtc_db_query("ALTER TABLE bx_product_variants
+				ADD PRIMARY KEY (identifier_id),
+				ADD UNIQUE KEY idx_products_attributes (products_id, attributes_hash)");
+			xtc_db_query("ALTER TABLE bx_product_variants MODIFY identifier_id int(11) UNSIGNED NOT NULL AUTO_INCREMENT;");
 			return;
 		}
 
-		$this->dropVariantMirrorTriggers();
-
-		xtc_db_query("CREATE TRIGGER bx_billbee_stock_sync_ai
-AFTER INSERT ON bx_product_variants
-FOR EACH ROW
-INSERT INTO bx_billbee_stock (
-	products_id,
-	products_sku,
-	products_ean,
-	billbee_attributes,
-	billbee_attributes_quantity,
-	bx_exported
-) VALUES (
-	NEW.products_id,
-	COALESCE(NEW.products_sku, ''),
-	COALESCE(NEW.products_ean, ''),
-	COALESCE(NEW.products_stock_attributes, ''),
-	COALESCE(NEW.products_stock_quantity, 0),
-	'n'
-)
-ON DUPLICATE KEY UPDATE
-	products_sku = VALUES(products_sku),
-	products_ean = VALUES(products_ean),
-	billbee_attributes_quantity = VALUES(billbee_attributes_quantity),
-	bx_exported = 'n'");
-
-		xtc_db_query("CREATE TRIGGER bx_billbee_stock_sync_au
-AFTER UPDATE ON bx_product_variants
-FOR EACH ROW
-BEGIN
-	IF OLD.products_id <> NEW.products_id
-		 OR COALESCE(OLD.products_stock_attributes, '') <> COALESCE(NEW.products_stock_attributes, '') THEN
-		DELETE FROM bx_billbee_stock
-		 WHERE products_id = OLD.products_id
-			 AND billbee_attributes = COALESCE(OLD.products_stock_attributes, '');
-	END IF;
-
-	INSERT INTO bx_billbee_stock (
-		products_id,
-		products_sku,
-		products_ean,
-		billbee_attributes,
-		billbee_attributes_quantity,
-		bx_exported
-	) VALUES (
-		NEW.products_id,
-		COALESCE(NEW.products_sku, ''),
-		COALESCE(NEW.products_ean, ''),
-		COALESCE(NEW.products_stock_attributes, ''),
-		COALESCE(NEW.products_stock_quantity, 0),
-		'n'
-	)
-	ON DUPLICATE KEY UPDATE
-		products_sku = VALUES(products_sku),
-		products_ean = VALUES(products_ean),
-		billbee_attributes_quantity = VALUES(billbee_attributes_quantity),
-		bx_exported = 'n';
-END");
-
-		xtc_db_query("CREATE TRIGGER bx_billbee_stock_sync_ad
-AFTER DELETE ON bx_product_variants
-FOR EACH ROW
-DELETE FROM bx_billbee_stock
- WHERE products_id = OLD.products_id
-	 AND billbee_attributes = COALESCE(OLD.products_stock_attributes, '')");
+		if (!$this->hasColumn('bx_product_variants', 'bx_exported')) {
+			xtc_db_query("ALTER TABLE bx_product_variants ADD bx_exported varchar(1) NOT NULL DEFAULT 'n' AFTER products_stock_quantity");
+		}
 	}
     
   public function install(): void {
 		xtc_db_query("ALTER TABLE ".TABLE_ADMIN_ACCESS." ADD bx_billbee INTEGER(1)");
 		xtc_db_query("UPDATE ".TABLE_ADMIN_ACCESS." SET bx_billbee = 1");
 
-		xtc_db_query("CREATE TABLE ".TABLE_BB_STOCK." ( billbee_stock_id int(11) UNSIGNED NOT NULL,
-																										products_id int(11) UNSIGNED NOT NULL DEFAULT 0,
-																										products_sku varchar(125) NOT NULL,
-																										products_ean varchar(125) NOT NULL,
-																										billbee_attributes varchar(255) NOT NULL,
-																										billbee_attributes_quantity int(11) UNSIGNED NOT NULL DEFAULT 0,
-																										bx_exported varchar(1) NOT NULL DEFAULT 'n'
-																									) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-																									
-		xtc_db_query("ALTER TABLE ".TABLE_BB_STOCK." ADD PRIMARY KEY (billbee_stock_id), ADD UNIQUE KEY idx_billbee_attributes (products_id,billbee_attributes);");
-		xtc_db_query("ALTER TABLE ".TABLE_BB_STOCK." MODIFY billbee_stock_id int(11) UNSIGNED NOT NULL AUTO_INCREMENT;");
-		$this->installVariantMirrorTriggers();
+		$this->ensureSharedVariantTable();
 
 		xtc_db_query("ALTER TABLE ".TABLE_ORDERS." ADD bx_exported VARCHAR(1) NOT NULL DEFAULT 'n'");
 		xtc_db_query("ALTER TABLE ".TABLE_PRODUCTS." ADD bx_exported VARCHAR(1) NOT NULL DEFAULT 'n'");
@@ -641,7 +597,6 @@ DELETE FROM bx_billbee_stock
    * @return void
    */
   public function remove(): void {
-		$this->dropVariantMirrorTriggers();
     xtc_db_query("DELETE FROM ".TABLE_CONFIGURATION." WHERE configuration_key in ('".implode("', '", $this->keys())."')");
 		xtc_db_query("DELETE FROM ".TABLE_CONFIGURATION." WHERE configuration_key in ('".implode("', '", $this->keys2())."')");
 		xtc_db_query("DELETE FROM ".TABLE_CONFIGURATION_GROUP." WHERE configuration_group_title = 'Billbee Konfiguration'");
@@ -650,7 +605,6 @@ DELETE FROM bx_billbee_stock
 		xtc_db_query("ALTER TABLE ".TABLE_ORDERS." DROP bx_exported");
 		xtc_db_query("DROP TABLE ".TABLE_BB_PAYMENT_METHOD.";");
 		xtc_db_query("DROP TABLE ".TABLE_BB_ORDER_STATUS.";");
-		xtc_db_query("DROP TABLE ".TABLE_BB_STOCK.";");
   }
 
   /**

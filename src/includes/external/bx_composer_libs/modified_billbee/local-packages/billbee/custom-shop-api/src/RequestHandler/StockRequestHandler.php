@@ -32,16 +32,20 @@ class StockRequestHandler extends RequestHandlerBase
     public function handle(RequestInterface $request, array $queryArgs = []): Response
     {
         if ($queryArgs['Action'] == 'SetStock') {
-            return $this->setStock($request);
+            return $this->setStock($request, $queryArgs);
         }
 
         return Response::notImplemented();
     }
 
-    private function setStock(RequestInterface $request): Response
+    private function setStock(RequestInterface $request, array $queryArgs = []): Response
     {
         /** @var array{"ProductId": ?string, "AvailableStock": ?string} $data */
         $data = $this->deserializeBody($request);
+        
+        // Merge mit Query-String Parametern (Query-String hat Priorität für Billbee-Kompatibilität)
+        $data = array_merge($data, array_filter($queryArgs, fn($key) => in_array($key, ['ProductId', 'AvailableStock']), ARRAY_FILTER_USE_KEY));
+        
         if (!isset($data['ProductId']) || empty($productId = trim($data['ProductId']))) {
             return Response::badRequest('Es wurde keine ProductId übergeben');
         }
