@@ -9,7 +9,7 @@
  * @author     benax
  * @copyright  2009-2026 modified eCommerce
  * @license    GPL-2.0
- * @version    1.3.5
+ * @version    2.0.0
  * @link       https://www.billbee.io
  */
 
@@ -44,10 +44,10 @@ class bx_billbee {
    * Konstruktor - Initialisiert die Modul-Eigenschaften
    */
   function __construct() {
-    $this->version     = '1.4.0';
+    $this->version     = '2.0.0';
 		$this->code        = 'bx_billbee';
-    $this->title       = MODULE_BILLBEE_TEXT_TITLE.' <small>(Version: '.$this->version.')</small>';
-    $this->description = MODULE_BILLBEE_TEXT_DESCRIPTION.'<p><strong>Version: '.$this->version.'</strong></p>';
+    $this->title       = MODULE_BILLBEE_TEXT_TITLE;
+    $this->description = MODULE_BILLBEE_TEXT_DESCRIPTION;
     $this->sort_order  = defined('MODULE_BILLBEE_SORT_ORDER') ? MODULE_BILLBEE_SORT_ORDER : 0;
     $this->enabled     = defined('MODULE_BILLBEE_STATUS') ? ((MODULE_BILLBEE_STATUS == 'true') ? true : false) : 0;
 		$this->development_status = 'p';
@@ -581,7 +581,7 @@ class bx_billbee {
 																												'5', 
 																												now(), 
 																												'',
-																												'xtc_draw_pull_down_menu( \'BILLBEE_LANGUAGE_ID\', bx_get_language_ids(), bx_get_billbee_language(), \'\', false, true , ')");
+																												'xtc_draw_pull_down_menu( \'BILLBEE_LANGUAGE_ID\', bx_get_billbee_language_ids(), bx_get_billbee_language(), \'\', false, true , ')");
 
 	}
 
@@ -605,6 +605,10 @@ class bx_billbee {
 		xtc_db_query("ALTER TABLE ".TABLE_ORDERS." DROP bx_exported");
 		xtc_db_query("DROP TABLE ".TABLE_BB_PAYMENT_METHOD.";");
 		xtc_db_query("DROP TABLE ".TABLE_BB_ORDER_STATUS.";");
+		
+		if(!defined("MODULE_BX_STOCKMANAGER_STATUS") && !defined("MODULE_BX_MPI_STATUS")) {
+			xtc_db_query("DROP TABLE IF EXISTS bx_product_variants;");
+		}
   }
 
   /**

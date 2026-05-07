@@ -17,11 +17,17 @@
    ---------------------------------------------------------------------------------------*/
 
 define('MODULE_BILLBEE_TEXT_TITLE', 'BX Billbee');
-define('MODULE_BILLBEE_TEXT_DESCRIPTION', '<table><tr><td>'.xtc_image(DIR_WS_ICONS.'heading/billbee_logo.png', 'Billbee').'</td><td><strong>The simple multichannel software in the cloud</strong></td></tr></table>
-<h4>Features</h4>
-<p>Completely customisable</p>'
-.((defined('MODULE_BILLBEE_STATUS') && 'true' == MODULE_BILLBEE_STATUS ) ? '<a href="'.xtc_href_link(FILENAME_BILLBEE, '', 'SSL').'">
-<h3 style="text-align: center;">&rAarr; Configuration &lAarr;</h3></a>' : '').' ');
+define('MODULE_BILLBEE_TEXT_DESCRIPTION', '
+<details class="bxac-card">
+<summary class="bxac-summary" style="list-style: none;">
+<span class="bxac-arrow">▸</span>
+<span class="bxac-title">' . xtc_image(DIR_WS_ICONS.'heading/bx_billbee.png', 'BX Billbee', '', '', 'style="max-height: 32px; vertical-align: middle; margin-right: 8px;"') . 'BX Billbee</span>
+</summary>
+  <div class="bxac-body">
+  <h3 style="margin-top: 0;">The simple multichannel software in the cloud</h3>
+  <h4>Features fully customizable</h4>'
+  .( (defined('MODULE_BILLBEE_STATUS') && 'true' == MODULE_BILLBEE_STATUS ) ? '<a href="'.xtc_href_link(FILENAME_BILLBEE, '', 'SSL').'"><h4 style="text-align: center;">&rAarr; Configuration &lAarr;</h4></a>' : '')
+  .'</div></details>');
 define('MODULE_BILLBEE_STATUS_TITLE' , 'Status');
 define('MODULE_BILLBEE_STATUS_DESC' , 'Enable module?');
 define('MODULE_BILLBEE_CONFIG_ID_TITLE' , 'Configuration ID');

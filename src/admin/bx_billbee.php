@@ -229,7 +229,7 @@
               <tr>
                 <td class="dataTableConfig col-left">5. <?php echo LANGUAGE_HEADING; ?></td>
                 <td class="dataTableConfig col-middle" colspan="2">
-                  <?php echo xtc_draw_pull_down_menu( 'BILLBEE_LANGUAGE_ID', bx_get_language_ids(), $billbee_language_id, '', false, true); ?>
+                  <?php echo xtc_draw_pull_down_menu( 'BILLBEE_LANGUAGE_ID', bx_get_billbee_language_ids(), $billbee_language_id, '', false, true); ?>
                 </td>
                 <td class="dataTableConfig col-right"><?php echo LANGUAGE_TEXT; ?></td>
               </tr>

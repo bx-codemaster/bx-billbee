@@ -29,7 +29,7 @@
     return $result;
   }
 
-  function bx_get_language_ids() {
+  function bx_get_billbee_language_ids() {
     $languages_array = array();
     $languages_query = xtc_db_query("SELECT languages_id,
                                             name
